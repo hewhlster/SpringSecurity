@@ -1,0 +1,86 @@
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:p="http://www.springframework.org/schema/p"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:security="http://www.springframework.org/schema/security"
+       xsi:schemaLocation="
+                 http://www.springframework.org/schema/beans
+                 http://www.springframework.org/schema/beans/spring-beans.xsd
+                 http://www.springframework.org/schema/context
+                 http://www.springframework.org/schema/context/spring-context.xsd
+                 http://www.springframework.org/schema/security
+                 http://www.springframework.org/schema/security/spring-security.xsd">
+
+
+    <!--无需认证的资源-->
+    <security:http pattern="/static/**" security="none"/>
+    <security:http pattern="/auth/vcode" security="none"/>
+    <security:http pattern="/login.jsp" security="none"/>
+
+
+    <!-- user-expressions:是否使用springEL表达式
+    entry-point-ref:认证入口-->
+    <security:http   auto-config="true">
+        <!--弹框认证
+        <security:http-basic/>
+        -->
+        <!--表单认证
+            login-page:自定义登陆页
+            authentication-success-forward-url:认证成功后跳转的url
+            authentication-failure-url:认证失败后的url
+        -->
+        <!--
+                authentication-success-forward-url="/user/loginsuccess"
+        -->
+        <security:form-login
+            authentication-success-forward-url="/auth/success"
+            login-processing-url="/auth/login"
+            login-page="/login.jsp"
+            />
+        <security:logout
+                logout-url="/logout"
+                invalidate-session="true"
+                logout-success-url="/"
+        />
+        <!--登陆页和静态资源不要认证便可访问
+        <security:intercept-url pattern="/auth/login" access="permitAll()"/>
+        -->
+        <security:intercept-url pattern="/login.jsp" access="permitAll()"/>
+
+        <!--其它资源只有认证后方可访问-->
+        <security:intercept-url pattern="/**" access="isAuthenticated()"/>
+
+        <security:custom-filter ref="validateVcodeFilter" before="FORM_LOGIN_FILTER" />
+        <!--增加自定鉴权拦截器
+            1.初始化时加载 资源与角色的关系
+            2.访问时使用以认证用户的角色与待访问资源的比较
+            -->
+        <security:custom-filter ref="accessSercuirtyInterceptor" before="FILTER_SECURITY_INTERCEPTOR"/>
+        <!--关闭csrf-->
+        <security:csrf disabled="true"/>
+        <!--鉴权失败处理器-->
+        <security:access-denied-handler ref="jackAccessDeniedHandler"/>
+    </security:http>
+
+
+    <!--密码编码器-->
+    <bean id="noOpPasswordEncoder" class="org.springframework.security.crypto.password.NoOpPasswordEncoder"/>
+    <!--认证管理器-->
+    <security:authentication-manager >
+        <!--认证器
+            user-service-ref:引用自己用户查找服务
+        -->
+        <security:authentication-provider user-service-ref="jackAutnenticationService">
+            <!--定义安全认证的用户
+                        <security:user-service>
+                            <security:user name= "user" password="user" authorities="ROLE_USER"/>
+                            <security:user name="admin" password="admin" authorities="ROLE_USER, ROLE_ADMIN"/>
+                        </security:user-service>
+             -->
+            <!--密码编码器-->
+             <security:password-encoder ref="noOpPasswordEncoder"/>
+        </security:authentication-provider>
+
+    </security:authentication-manager>
+
+</beans>
